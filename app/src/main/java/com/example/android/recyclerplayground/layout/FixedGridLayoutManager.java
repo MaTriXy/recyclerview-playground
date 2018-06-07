@@ -57,8 +57,6 @@ public class FixedGridLayoutManager extends RecyclerView.LayoutManager {
     /* Metrics for the visible window of our data */
     private int mVisibleColumnCount;
     private int mVisibleRowCount;
-    /* Flag to force current scroll offsets to be ignored on re-layout */
-    private boolean mForceClearOffsets;
 
     /* Used for tracking off-screen change events */
     private int mFirstChangedPosition;
@@ -182,25 +180,22 @@ public class FixedGridLayoutManager extends RecyclerView.LayoutManager {
         if (getChildCount() == 0) { //First or empty layout
             //Reset the visible and scroll positions
             mFirstVisiblePosition = 0;
-            childLeft = childTop = 0;
+            childLeft = getPaddingLeft();
+            childTop = getPaddingTop();
         } else if (!state.isPreLayout()
                 && getVisibleChildCount() >= state.getItemCount()) {
             //Data set is too small to scroll fully, just reset position
             mFirstVisiblePosition = 0;
-            childLeft = childTop = 0;
+            childLeft = getPaddingLeft();
+            childTop = getPaddingTop();
         } else { //Adapter data set changes
             /*
              * Keep the existing initial position, and save off
              * the current scrolled offset.
              */
             final View topChild = getChildAt(0);
-            if (mForceClearOffsets) {
-                childLeft = childTop = 0;
-                mForceClearOffsets = false;
-            } else {
-                childLeft = getDecoratedLeft(topChild);
-                childTop = getDecoratedTop(topChild);
-            }
+            childLeft = getDecoratedLeft(topChild);
+            childTop = getDecoratedTop(topChild);
 
             /*
              * When data set is too small to scroll vertically, adjust vertical offset
@@ -208,12 +203,12 @@ public class FixedGridLayoutManager extends RecyclerView.LayoutManager {
              */
             if (!state.isPreLayout() && getVerticalSpace() > (getTotalRowCount() * mDecoratedChildHeight)) {
                 mFirstVisiblePosition = mFirstVisiblePosition % getTotalColumnCount();
-                childTop = 0;
+                childTop = getPaddingTop();
 
                 //If the shift overscrolls the column max, back it off
                 if ((mFirstVisiblePosition + mVisibleColumnCount) > state.getItemCount()) {
                     mFirstVisiblePosition = Math.max(state.getItemCount() - mVisibleColumnCount, 0);
-                    childLeft = 0;
+                    childLeft = getPaddingLeft();
                 }
             }
 
@@ -248,10 +243,10 @@ public class FixedGridLayoutManager extends RecyclerView.LayoutManager {
                 //Correct cases where shifting to the bottom-right overscrolls the top-left
                 // This happens on data sets too small to scroll in a direction.
                 if (getFirstVisibleRow() == 0) {
-                    childTop = Math.min(childTop, 0);
+                    childTop = Math.min(childTop, getPaddingTop());
                 }
                 if (getFirstVisibleColumn() == 0) {
-                    childLeft = Math.min(childLeft, 0);
+                    childLeft = Math.min(childLeft, getPaddingLeft());
                 }
             }
         }
@@ -331,8 +326,8 @@ public class FixedGridLayoutManager extends RecyclerView.LayoutManager {
          * quickly reorder views without a full add/remove.
          */
         SparseArray<View> viewCache = new SparseArray<View>(getChildCount());
-        int startLeftOffset = getPaddingLeft() + emptyLeft;
-        int startTopOffset = getPaddingTop() + emptyTop;
+        int startLeftOffset = emptyLeft;
+        int startTopOffset = emptyTop;
         if (getChildCount() != 0) {
             final View topView = getChildAt(0);
             startLeftOffset = getDecoratedLeft(topView);
@@ -500,10 +495,10 @@ public class FixedGridLayoutManager extends RecyclerView.LayoutManager {
             return;
         }
 
-        //Ignore current scroll offset, snap to top-left
-        mForceClearOffsets = true;
         //Set requested position as first visible
         mFirstVisiblePosition = position;
+        //Toss all existing views away
+        removeAllViews();
         //Trigger a new view layout
         requestLayout();
     }
